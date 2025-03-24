@@ -3,12 +3,11 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>환율 계산기 | 안정 API</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>실시간 환율 계산기</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 550px;
+      max-width: 500px;
       margin: 40px auto;
       padding: 20px;
       border: 1px solid #ccc;
@@ -18,184 +17,91 @@
       padding: 10px;
       margin-top: 10px;
       font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
     }
-    .row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
+    button {
+      background-color: #e0e0e0;
+      border: 1px solid #888;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #d5d5d5;
     }
     #result, #rateInfo {
       margin-top: 15px;
       font-weight: bold;
       text-align: center;
-    }
-    .chart-container {
-      margin-top: 30px;
-    }
-    .chart-buttons button {
-      margin-right: 5px;
+      white-space: pre-line;
     }
   </style>
 </head>
 <body>
   <h2 style="text-align:center">💱 실시간 환율 계산기</h2>
 
-  <div class="row">
-    <input type="number" id="amount" placeholder="예: 1000" style="flex: 1;">
-  </div>
+  <input type="number" id="amount" placeholder="금액 입력 (예: 1000)" />
 
-  <div class="row">
-    <select id="fromCurrency" style="flex: 1;">
-      <option value="USD">USD (달러)</option>
-      <option value="EUR">EUR (유로)</option>
-      <option value="JPY">JPY (엔)</option>
-      <option value="KRW">KRW (원)</option>
-    </select>
+  <select id="fromCurrency">
+    <option value="USD">USD (달러)</option>
+    <option value="EUR">EUR (유로)</option>
+    <option value="JPY">JPY (엔)</option>
+    <option value="KRW">KRW (원)</option>
+  </select>
 
-    <button onclick="swapCurrencies()">↔</button>
-
-    <select id="toCurrency" style="flex: 1;">
-      <option value="USD">USD (달러)</option>
-      <option value="EUR">EUR (유로)</option>
-      <option value="JPY">JPY (엔)</option>
-      <option value="KRW">KRW (원)</option>
-    </select>
-  </div>
-
-  <div id="rateInfo">환율 정보를 불러오는 중...</div>
+  <select id="toCurrency">
+    <option value="KRW">KRW (원)</option>
+    <option value="USD">USD (달러)</option>
+    <option value="EUR">EUR (유로)</option>
+    <option value="JPY">JPY (엔)</option>
+  </select>
 
   <button onclick="convertCurrency()">💸 계산하기</button>
+
+  <div id="rateInfo">환율 정보를 불러오는 중...</div>
   <div id="result"></div>
 
-  <div class="chart-container">
-    <div class="chart-buttons">
-      <button onclick="loadChart('1d')">1일</button>
-      <button onclick="loadChart('7d')">1주</button>
-      <button onclick="loadChart('30d')">1달</button>
-    </div>
-    <canvas id="rateChart" height="200"></canvas>
-  </div>
-
   <script>
-    let chart;
+    async function convertCurrency() {
+      const amountInput = document.getElementById('amount');
+      const fromCurrency = document.getElementById('fromCurrency');
+      const toCurrency = document.getElementById('toCurrency');
 
-    async function fetchAndDisplayRate() {
-      const from = document.getElementById('fromCurrency').value;
-      const to = document.getElementById('toCurrency').value;
+      const amount = parseFloat(amountInput.value);
+      const from = fromCurrency.options[fromCurrency.selectedIndex].value;
+      const to = toCurrency.options[toCurrency.selectedIndex].value;
+
+      if (isNaN(amount)) {
+        document.getElementById('result').innerText = "금액을 입력하세요.";
+        return;
+      }
 
       if (from === to) {
-        document.getElementById('rateInfo').innerText = `💱 동일 통화: 1 ${from} = 1 ${to}`;
-        return 1;
+        document.getElementById('rateInfo').innerText = `동일 통화: 1 ${from} = 1 ${to}`;
+        document.getElementById('result').innerText = `${amount} ${from} = ${amount.toFixed(2)} ${to}`;
+        return;
       }
 
       try {
-        const res = await fetch(`https://open.er-api.com/v6/latest/${from}`);
+        const res = await fetch(`https://api.exchangerate.host/latest?base=${from}&symbols=${to}`);
         const data = await res.json();
         const rate = data.rates[to];
-        const date = data.time_last_update_utc;
+        const date = data.date;
 
-        document.getElementById('rateInfo').innerText = `📅 ${date} 기준 | 💱 1 ${from} = ${rate.toFixed(4)} ${to}`;
-        return rate;
-      } catch (e) {
+        const converted = amount * rate;
+        document.getElementById('rateInfo').innerText = `📅 ${date} 기준
+1 ${from} = ${rate.toFixed(4)} ${to}`;
+        document.getElementById('result').innerText = `${amount} ${from} → ${converted.toFixed(2)} ${to}`;
+      } catch (err) {
         document.getElementById('rateInfo').innerText = "❌ 환율 정보를 불러오지 못했습니다.";
-        return NaN;
+        document.getElementById('result').innerText = "";
       }
     }
 
-    async function convertCurrency() {
-      const amount = parseFloat(document.getElementById('amount').value);
-      if (isNaN(amount)) {
-        document.getElementById('result').innerText = "💬 금액을 입력하세요.";
-        return;
-      }
-
-      const rate = await fetchAndDisplayRate();
-      if (!rate || isNaN(rate)) {
-        document.getElementById('result').innerText = "❌ 환율을 불러오지 못했습니다.";
-        return;
-      }
-
-      const from = document.getElementById('fromCurrency').value;
-      const to = document.getElementById('toCurrency').value;
-      const converted = amount * rate;
-
-      document.getElementById('result').innerText = `${amount} ${from} → ${converted.toFixed(2)} ${to}`;
-    }
-
-    function swapCurrencies() {
-      const from = document.getElementById('fromCurrency');
-      const to = document.getElementById('toCurrency');
-      [from.value, to.value] = [to.value, from.value];
-      fetchAndDisplayRate();
-    }
-
-    async function loadChart(period) {
-      const from = document.getElementById('fromCurrency').value;
-      const to = document.getElementById('toCurrency').value;
-
-      if (from === to) {
-        if (chart) chart.destroy();
-        return;
-      }
-
-      try {
-        const res = await fetch(`https://api.exchangerate.host/timeseries?start_date=${getStartDate(period)}&end_date=${getToday()}&base=${from}&symbols=${to}`);
-        const data = await res.json();
-        const labels = Object.keys(data.rates);
-        const values = labels.map(date => data.rates[date][to]);
-        const avg = values.reduce((a, b) => a + b, 0) / values.length;
-        const avgLine = new Array(values.length).fill(avg);
-
-        if (chart) chart.destroy();
-        const ctx = document.getElementById('rateChart').getContext('2d');
-        chart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [
-              {
-                label: `${from} → ${to} 환율`,
-                data: values,
-                borderWidth: 2,
-                fill: false,
-                borderColor: 'blue'
-              },
-              {
-                label: '평균선',
-                data: avgLine,
-                borderWidth: 1,
-                borderDash: [5, 5],
-                fill: false,
-                borderColor: 'red'
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { position: 'top' }
-            }
-          }
-        });
-      } catch {
-        document.getElementById('result').innerText = "❌ 환율 그래프를 불러오지 못했습니다.";
-      }
-    }
-
-    function getToday() {
-      return new Date().toISOString().split('T')[0];
-    }
-
-    function getStartDate(period) {
-      const today = new Date();
-      if (period === '1d') today.setDate(today.getDate() - 2);
-      else if (period === '7d') today.setDate(today.getDate() - 7);
-      else if (period === '30d') today.setDate(today.getDate() - 30);
-      return today.toISOString().split('T')[0];
-    }
-
-    window.onload = fetchAndDisplayRate;
+    // 초기 자동 환율 정보 표시
+    window.onload = () => {
+      document.getElementById('amount').value = 1;
+      convertCurrency();
+    };
   </script>
 </body>
 </html>
