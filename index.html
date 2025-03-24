@@ -88,8 +88,11 @@
         const date = data.date;
 
         const converted = amount * rate;
-        document.getElementById('rateInfo').innerText = `📅 ${date} 기준
-1 ${from} = ${rate.toFixed(4)} ${to}`;
+        const d = new Date(date + "T00:00:00Z");
+const days = ['일', '월', '화', '수', '목', '금', '토'];
+const formatted = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')} 기준`;
+document.getElementById('rateInfo').innerText = `${formatted}
+💱 1 ${from} = ${rate.toFixed(4)} ${to}`;
         document.getElementById('result').innerText = `${amount} ${from} → ${converted.toFixed(2)} ${to}`;
       } catch (err) {
         document.getElementById('rateInfo').innerText = "❌ 환율 정보를 불러오지 못했습니다.";
